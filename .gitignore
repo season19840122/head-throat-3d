@@ -9,3 +9,9 @@ __pycache__/
 # 编辑器
 .vscode/
 .idea/
+
+# EdgeOne Makers 本地状态与构建产物
+#   .edgeone/assets  是部署时整份拷贝的项目副本（体积翻倍），不进版本库
+#   .edgeone/project.json  是本地项目链接信息，各人本地各自生成
+.edgeone/
+.env
