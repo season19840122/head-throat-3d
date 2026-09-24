@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>头颈咽喉 · 3D 交互解剖</title>
+<meta name="description" content="可交互的头部到咽喉 3D 解剖模型：鼻腔、口腔、咽、喉、声带、气管、食管与甲状腺，支持剖面、爆炸视图、呼吸/吞咽/发声动画。" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c7f95'/%3E%3Cpath d='M16 6.5a5.2 5.2 0 1 0 0 10.4 5.2 5.2 0 0 0 0-10.4zm0 12.4c-4.3 0-7.6 2.1-7.6 4.3v2.3h15.2v-2.3c0-2.2-3.3-4.3-7.6-4.3z' fill='white'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- 3D 画布 -->
+  <canvas id="stage"></canvas>
+
+  <!-- 标注引线层 -->
+  <div class="overlay" id="overlay"></div>
+
+  <!-- 悬停提示 -->
+  <div class="tooltip" id="tooltip"></div>
+
+  <!-- 平移模式画面提示 -->
+  <div class="pan-badge" id="panBadge">🖐 平移模式 · 用左键拖动即可移动画面（再按 P 或点按钮退出）</div>
+
+  <!-- 顶栏 -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◍</span>
+      <div>
+        <h1>头颈咽喉 · 3D 交互解剖</h1>
+        <p>颅底 → 鼻腔 / 口腔 → 咽 → 喉 → 气管 · 食管</p>
+      </div>
+    </div>
+
+    <div class="top-actions">
+      <div class="viewset" id="viewset">
+        <button class="btn" data-view="iso">斜视</button>
+        <button class="btn" data-view="front">正面</button>
+        <button class="btn" data-view="sagittal">矢状面</button>
+        <button class="btn" data-view="top">顶面</button>
+        <button class="btn" data-view="larynx">聚焦喉</button>
+      </div>
+      <button class="btn ghost" id="themeBtn" title="切换明暗">深色</button>
+      <button class="btn ghost mobile-nav" id="navBtn">结构目录</button>
+    </div>
+  </header>
+
+  <!-- 左：结构目录 -->
+  <aside class="panel left" id="sidebar">
+    <div class="panel-head">结构目录 <span class="count" id="structCount"></span></div>
+    <div class="scroll struct-list" id="structList"></div>
+  </aside>
+
+  <!-- 右：详情卡 -->
+  <aside class="panel right" id="detail">
+    <div class="panel-head">结构详情 <span class="count" id="detailCount"></span></div>
+    <div class="scroll" id="detailScroll"></div>
+  </aside>
+
+  <!-- 操作提示 -->
+  <div class="hint" id="hint">左键拖拽旋转 · 滚轮缩放 · <b>拖动画面</b>：按住 ✋平移 后用左键拖，或直接 <b>Shift+左键拖</b> / 中键拖 / 右键拖 / 按住空格拖</div>
+
+  <!-- 底部控制台 -->
+  <section class="dock" id="dock">
+
+    <div class="seg" id="modeSet">
+      <button class="btn on" data-mode="solid">完整</button>
+      <button class="btn" data-mode="section">剖面</button>
+      <button class="btn" data-mode="wire">线框</button>
+    </div>
+
+    <span class="divider"></span>
+
+    <label class="slider">
+      <span class="lbl">外壳</span>
+      <input type="range" id="shellRange" min="0" max="300" value="100" />
+      <span class="val" id="shellVal">100%</span>
+    </label>
+
+    <label class="slider">
+      <span class="lbl">爆炸</span>
+      <input type="range" id="explodeRange" min="0" max="100" value="0" />
+      <span class="val" id="explodeVal">0%</span>
+    </label>
+
+    <span class="divider"></span>
+
+    <div class="seg" id="animSet">
+      <button class="btn" data-anim="breathing">呼吸</button>
+      <button class="btn" data-anim="swallow">吞咽</button>
+      <button class="btn" data-anim="voice">发声</button>
+    </div>
+
+    <label class="slider">
+      <span class="lbl">基频</span>
+      <input type="range" id="pitchRange" min="80" max="320" value="132" disabled />
+      <span class="val" id="pitchVal">132Hz</span>
+    </label>
+    <canvas id="scope" width="192" height="52"></canvas>
+
+    <span class="divider"></span>
+
+    <button class="btn ghost" id="panBtn" title="平移模式：开启后用左键拖拽即可移动画面（快捷键 P，或按住空格临时平移）">✋ 拖拽平移</button>
+    <button class="btn ghost" id="labelBtn">标注</button>
+    <button class="btn ghost" id="resetBtn" title="重置视角与状态">重置</button>
+  </section>
+
+  <!-- 加载层 -->
+  <div class="loader" id="loader">
+    <div>
+      <div class="ring"></div>
+      <p>正在构建头颈解剖模型…</p>
+      <div class="sub">程序化生成 25 组结构 · 无需外部模型文件</div>
+    </div>
+  </div>
+
+</div>
+
+<noscript>
+  <p style="padding:24px;font-family:sans-serif">本页需要启用 JavaScript 才能渲染 3D 解剖模型。</p>
+</noscript>
+
+<!-- CWGUARD:START -->
+<!--
+  ⚠ 入口守卫（务必留在最后一处）
+  本页是**开发版**，靠 ES Module 加载 js/app.js。
+  而 ES Module 在 file:// 协议下会被浏览器以 CORS 为由直接拒绝（模块的 origin 是 null），
+  脚本一行都不跑；偏偏加载遮罩是靠脚本跑完才隐藏的 —— 于是双击打开会永远停在
+  「正在构建头颈解剖模型…」，看起来像卡死。
+  所以这里**不写死 script 标签，改成按需注入**：
+    · http(s) 下 → 注入 js/app.js，正常启动；
+    · file:// 下 → 不再发起注定失败的模块请求（控制台干净），并把遮罩换成
+      一句人话 + 指向单文件版 standalone.html（由 build_standalone.py 生成，双击即可）。
+-->
+<script>
+(function () {
+  if (location.protocol === 'file:') {
+    var el = document.getElementById('loader');
+    if (el) {
+      el.innerHTML =
+        '<div style="max-width:620px;text-align:left;font:15px/1.75 -apple-system,BlinkMacSystemFont,' +
+        '\'PingFang SC\',sans-serif;color:#22303c">' +
+        '<div style="font-size:26px;margin:0 0 6px">⚠️ 这个文件不能直接双击打开</div>' +
+        '<p style="margin:0 0 14px;color:#4a5a68">本页用 ES Module 加载脚本，而浏览器在 ' +
+        '<code style="background:#eef2f6;padding:2px 6px;border-radius:4px">file://</code> 协议下会以 ' +
+        '<b>CORS</b> 为由拒绝加载模块 —— 脚本一行都没执行，所以一直卡在加载动画上。</p>' +
+        '<p style="margin:0 0 18px">请用同目录下的<b>单文件版</b>，双击即可、不需要任何服务：</p>' +
+        '<p style="margin:0 0 22px"><a href="standalone.html" style="display:inline-block;' +
+        'background:#0c7f95;color:#fff;text-decoration:none;padding:12px 26px;border-radius:10px;' +
+        'font-size:18px;font-weight:600">→ 打开 standalone.html</a></p>' +
+        '<p style="margin:0;color:#6b7a8c;font-size:13px">如果你是要改代码、跑这个开发版，' +
+        '需要起一个静态服务：<br><code style="background:#eef2f6;padding:2px 6px;border-radius:4px">' +
+        'python3 -m http.server 8899</code> 然后访问 ' +
+        '<code style="background:#eef2f6;padding:2px 6px;border-radius:4px">http://127.0.0.1:8899/</code>' +
+        '</p></div>';
+    }
+    return;
+  }
+  var s = document.createElement('script');
+  s.type = 'module';
+  s.src = 'js/app.js';
+  document.body.appendChild(s);
+})();
+</script>
+<!-- CWGUARD:END -->
+</body>
+</html>
